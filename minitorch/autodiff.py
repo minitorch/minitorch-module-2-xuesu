@@ -1,3 +1,6 @@
+from typing import Any, List
+
+
 variable_count = 1
 
 
@@ -190,7 +193,10 @@ class History:
         Returns:
             list of numbers : a derivative with respect to `inputs`
         """
-        raise NotImplementedError('Need to include this file from past assignment.')
+        if self.last_fn is not None:
+            vdlist = self.last_fn.chain_rule(self.ctx, self.inputs, d_output)
+            return vdlist
+        return []
 
 
 class FunctionBase:
@@ -270,9 +276,17 @@ class FunctionBase:
             (see `is_constant` to remove unneeded variables)
 
         """
+        dlist = cls.backward(ctx, d_output)
+        if not isinstance(dlist, list):
+            dlist = [dlist]
+        assert len(dlist) == len(inputs)
+        return [
+            (input_v, d)
+            for input_v, d in zip(inputs, dlist)
+            if not is_constant(input_v)
+        ]
         # Tip: Note when implementing this function that
         # cls.backward may return either a value or a tuple.
-        raise NotImplementedError('Need to include this file from past assignment.')
 
 
 # Algorithms for backpropagation
@@ -282,21 +296,33 @@ def is_constant(val):
     return not isinstance(val, Variable) or val.history is None
 
 
-def topological_sort(variable):
+def topological_sort(variable: Variable) -> List[Variable]:
     """
     Computes the topological order of the computation graph.
 
     Args:
-        variable (:class:`Variable`): The right-most variable
+        variable: The right-most variable
 
     Returns:
         list of Variables : Non-constant Variables in topological order
                             starting from the right.
     """
-    raise NotImplementedError('Need to include this file from past assignment.')
+    vis = set()
+    que = [variable]
+    _ans = []
+    while len(que) > 0:
+        top_v = que[0]
+        que = que[1:]
+        if not is_constant(top_v):
+            _ans.append(top_v)
+            for parent_v in top_v.parents:
+                if parent_v.unique_id not in vis:
+                    vis.add(parent_v.unique_id)
+                    que.append(parent_v)
+    return _ans
 
 
-def backpropagate(variable, deriv):
+def backpropagate(variable: Variable, deriv: Any) -> None:
     """
     Runs backpropagation on the computation graph in order to
     compute derivatives for the leave nodes.
@@ -309,4 +335,11 @@ def backpropagate(variable, deriv):
 
     No return. Should write to its results to the derivative values of each leaf through `accumulate_derivative`.
     """
-    raise NotImplementedError('Need to include this file from past assignment.')
+    que = topological_sort(variable)
+    id2d = {variable.unique_id: deriv}
+    for v in que:
+        if v.is_leaf():
+            v.accumulate_derivative(id2d[v.unique_id])
+        else:
+            for p_v, d in v.history.backprop_step(id2d[v.unique_id]):
+                id2d[p_v.unique_id] = id2d.get(p_v.unique_id, 0) + d

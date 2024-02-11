@@ -1,13 +1,18 @@
+from __future__ import annotations
+
+from typing import Any, Tuple, Union
 from .autodiff import FunctionBase, Variable, History
 from . import operators
+from .autodiff import Context
 import numpy as np
 
 
 # ## Task 1.1
 # Central Difference calculation
+ScalarLike = Union[float, int, "Scalar"]
 
 
-def central_difference(f, *vals, arg=0, epsilon=1e-6):
+def central_difference(f: Any, *vals: Any, arg: int = 0, epsilon: float = 1e-6) -> Any:
     r"""
     Computes an approximation to the derivative of `f` with respect to one arg.
 
@@ -15,14 +20,18 @@ def central_difference(f, *vals, arg=0, epsilon=1e-6):
 
     Args:
         f : arbitrary function from n-scalar args to one value
-        *vals (list of floats): n-float values :math:`x_0 \ldots x_{n-1}`
-        arg (int): the number :math:`i` of the arg to compute the derivative
-        epsilon (float): a small constant
+        *vals : n-float values $x_0 \ldots x_{n-1}$
+        arg : the number $i$ of the arg to compute the derivative
+        epsilon : a small constant
 
     Returns:
-        float : An approximation of :math:`f'_i(x_0, \ldots, x_{n-1})`
+        An approximation of $f'_i(x_0, \ldots, x_{n-1})$
     """
-    raise NotImplementedError('Need to include this file from past assignment.')
+    reduced_vals = list(vals)
+    added_vals = list(vals)
+    reduced_vals[arg] -= epsilon
+    added_vals[arg] += epsilon
+    return (f(*added_vals) - f(*reduced_vals)) / (2.0 * epsilon)
 
 
 # ## Task 1.2 and 1.4
@@ -45,50 +54,56 @@ class Scalar(Variable):
         super().__init__(back, name=name)
         self.data = float(v)
 
-    def __repr__(self):
-        return "Scalar(%f)" % self.data
+    def __repr__(self) -> str:
+        return "Scalar(id: %d, %f)" % (self.unique_id, self.data)
 
-    def __mul__(self, b):
+    def __mul__(self, b: ScalarLike) -> Scalar:
         return Mul.apply(self, b)
 
-    def __truediv__(self, b):
+    def __truediv__(self, b: ScalarLike) -> Scalar:
         return Mul.apply(self, Inv.apply(b))
 
-    def __rtruediv__(self, b):
+    def __rtruediv__(self, b: ScalarLike) -> Scalar:
         return Mul.apply(b, Inv.apply(self))
 
-    def __add__(self, b):
-        raise NotImplementedError('Need to include this file from past assignment.')
+    def __add__(self, b: ScalarLike) -> Scalar:
+        return Add.apply(self, b)
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         return bool(self.data)
 
-    def __lt__(self, b):
-        raise NotImplementedError('Need to include this file from past assignment.')
+    def __lt__(self, b: ScalarLike) -> Scalar:
+        return LT.apply(self, b)
 
-    def __gt__(self, b):
-        raise NotImplementedError('Need to include this file from past assignment.')
+    def __gt__(self, b: ScalarLike) -> Scalar:
+        return LT.apply(b, self)
 
-    def __eq__(self, b):
-        raise NotImplementedError('Need to include this file from past assignment.')
+    def __eq__(self, b: ScalarLike) -> Scalar:  # type: ignore[override]
+        return EQ.apply(self, b)
 
-    def __sub__(self, b):
-        raise NotImplementedError('Need to include this file from past assignment.')
+    def __sub__(self, b: ScalarLike) -> Scalar:
+        return Add.apply(self, Neg.apply(b))
 
-    def __neg__(self):
-        raise NotImplementedError('Need to include this file from past assignment.')
+    def __neg__(self) -> Scalar:
+        return Neg.apply(self)
 
-    def log(self):
-        raise NotImplementedError('Need to include this file from past assignment.')
+    def __radd__(self, b: ScalarLike) -> Scalar:
+        return self + b
 
-    def exp(self):
-        raise NotImplementedError('Need to include this file from past assignment.')
+    def __rmul__(self, b: ScalarLike) -> Scalar:
+        return self * b
 
-    def sigmoid(self):
-        raise NotImplementedError('Need to include this file from past assignment.')
+    def log(self) -> Scalar:
+        return Log.apply(self)
 
-    def relu(self):
-        raise NotImplementedError('Need to include this file from past assignment.')
+    def exp(self) -> Scalar:
+        return Exp.apply(self)
+
+    def sigmoid(self) -> Scalar:
+        return Sigmoid.apply(self)
+
+    def relu(self) -> Scalar:
+        return ReLU.apply(self)
 
     def get_data(self):
         "Returns the raw float value"
@@ -177,96 +192,111 @@ class Mul(ScalarFunction):
     "Multiplication function"
 
     @staticmethod
-    def forward(ctx, a, b):
-        raise NotImplementedError('Need to include this file from past assignment.')
+    def forward(ctx: Context, a: float, b: float) -> float:
+        ctx.save_for_backward(a, b)
+        return operators.mul(a, b)
 
     @staticmethod
-    def backward(ctx, d_output):
-        raise NotImplementedError('Need to include this file from past assignment.')
+    def backward(ctx: Context, d_output: float) -> Tuple[float, float]:
+        (a, b) = ctx.saved_values
+        return d_output * b, d_output * a
 
 
 class Inv(ScalarFunction):
     "Inverse function"
 
     @staticmethod
-    def forward(ctx, a):
-        raise NotImplementedError('Need to include this file from past assignment.')
+    def forward(ctx: Context, a: float) -> float:
+        ctx.save_for_backward(a)
+        return operators.inv(a)
 
     @staticmethod
-    def backward(ctx, d_output):
-        raise NotImplementedError('Need to include this file from past assignment.')
+    def backward(ctx: Context, d_output: float) -> float:
+        (a,) = ctx.saved_values
+        return operators.inv_back(a, d_output)
 
 
 class Neg(ScalarFunction):
     "Negation function"
 
     @staticmethod
-    def forward(ctx, a):
-        raise NotImplementedError('Need to include this file from past assignment.')
+    def forward(ctx: Context, a: float) -> float:
+        ctx.save_for_backward(a)
+        a = float(a)  # or it cannot pass the Apply assertion
+        return operators.neg(a)
 
     @staticmethod
-    def backward(ctx, d_output):
-        raise NotImplementedError('Need to include this file from past assignment.')
+    def backward(ctx: Context, d_output: float) -> float:
+        return -d_output
 
 
 class Sigmoid(ScalarFunction):
     "Sigmoid function"
 
     @staticmethod
-    def forward(ctx, a):
-        raise NotImplementedError('Need to include this file from past assignment.')
+    def forward(ctx: Context, a: float) -> float:
+        ctx.save_for_backward(a)
+        return operators.sigmoid(a)
 
     @staticmethod
-    def backward(ctx, d_output):
-        raise NotImplementedError('Need to include this file from past assignment.')
+    def backward(ctx: Context, d_output: float) -> float:
+        (a,) = ctx.saved_values
+        t = operators.sigmoid(a)
+        return d_output * (t - t * t)
 
 
 class ReLU(ScalarFunction):
     "ReLU function"
 
     @staticmethod
-    def forward(ctx, a):
-        raise NotImplementedError('Need to include this file from past assignment.')
+    def forward(ctx: Context, a: float) -> float:
+        ctx.save_for_backward(a)
+        return operators.relu(a)
 
     @staticmethod
-    def backward(ctx, d_output):
-        raise NotImplementedError('Need to include this file from past assignment.')
+    def backward(ctx: Context, d_output: float) -> float:
+        (a,) = ctx.saved_values
+        return operators.relu_back(a, d_output)
 
 
 class Exp(ScalarFunction):
     "Exp function"
 
     @staticmethod
-    def forward(ctx, a):
-        raise NotImplementedError('Need to include this file from past assignment.')
+    def forward(ctx: Context, a: float) -> float:
+        ctx.save_for_backward(a)
+        return operators.exp(a)
 
     @staticmethod
-    def backward(ctx, d_output):
-        raise NotImplementedError('Need to include this file from past assignment.')
+    def backward(ctx: Context, d_output: float) -> float:
+        (a,) = ctx.saved_values
+        return operators.exp(a) * d_output
 
 
 class LT(ScalarFunction):
-    "Less-than function :math:`f(x) =` 1.0 if x is less than y else 0.0"
+    "Less-than function $f(x) =$ 1.0 if x is less than y else 0.0"
 
     @staticmethod
-    def forward(ctx, a, b):
-        raise NotImplementedError('Need to include this file from past assignment.')
+    def forward(ctx: Context, a: float, b: float) -> float:
+        ctx.save_for_backward(a, b)
+        return operators.lt(a, b)
 
     @staticmethod
-    def backward(ctx, d_output):
-        raise NotImplementedError('Need to include this file from past assignment.')
+    def backward(ctx: Context, d_output: float) -> Tuple[float, float]:
+        return 0.0, 0.0
 
 
 class EQ(ScalarFunction):
-    "Equal function :math:`f(x) =` 1.0 if x is equal to y else 0.0"
+    "Equal function $f(x) =$ 1.0 if x is equal to y else 0.0"
 
     @staticmethod
-    def forward(ctx, a, b):
-        raise NotImplementedError('Need to include this file from past assignment.')
+    def forward(ctx: Context, a: float, b: float) -> float:
+        ctx.save_for_backward(a, b)
+        return operators.eq(a, b)
 
     @staticmethod
-    def backward(ctx, d_output):
-        raise NotImplementedError('Need to include this file from past assignment.')
+    def backward(ctx: Context, d_output: float) -> Tuple[float, float]:
+        return 0.0, 0.0
 
 
 def derivative_check(f, *scalars):
