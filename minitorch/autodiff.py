@@ -1,7 +1,5 @@
 from typing import Any, List
 
-from .tensor import Tensor
-
 
 variable_count = 1
 
@@ -381,6 +379,8 @@ def backpropagate(variable: Variable, deriv: Any) -> None:
     id2d = {variable.unique_id: deriv}
     for v in que:
         d = id2d[v.unique_id]
+        from minitorch.tensor import Tensor
+
         assert (
             isinstance(d, Tensor)
             and isinstance(v, Tensor)
