@@ -3,7 +3,7 @@ import random
 import numpy
 from .operators import prod
 from numpy import array, float64, ndarray
-import numba
+import numba  # type: ignore
 
 MAX_DIMS = 32
 

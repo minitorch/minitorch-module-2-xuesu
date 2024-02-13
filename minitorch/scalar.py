@@ -120,7 +120,7 @@ class ScalarFunction(FunctionBase):
     """
 
     @staticmethod
-    def forward(ctx, *inputs):
+    def forward(ctx: Context, *inputs) -> float:
         r"""
         Forward call, compute :math:`f(x_0 \ldots x_{n-1})`.
 
@@ -132,7 +132,7 @@ class ScalarFunction(FunctionBase):
 
         Should return float the computation of the function :math:`f`.
         """
-        pass  # pragma: no cover
+        raise NotImplementedError()  # pragma: no cover
 
     @staticmethod
     def backward(ctx, d_out):
@@ -192,7 +192,7 @@ class Mul(ScalarFunction):
     "Multiplication function"
 
     @staticmethod
-    def forward(ctx: Context, a: float, b: float) -> float:
+    def forward(ctx: Context, a: float, b: float) -> float:  # type: ignore
         ctx.save_for_backward(a, b)
         return operators.mul(a, b)
 
@@ -206,7 +206,7 @@ class Inv(ScalarFunction):
     "Inverse function"
 
     @staticmethod
-    def forward(ctx: Context, a: float) -> float:
+    def forward(ctx: Context, a: float) -> float:  # type: ignore
         ctx.save_for_backward(a)
         return operators.inv(a)
 
@@ -220,7 +220,7 @@ class Neg(ScalarFunction):
     "Negation function"
 
     @staticmethod
-    def forward(ctx: Context, a: float) -> float:
+    def forward(ctx: Context, a: float) -> float:  # type: ignore
         ctx.save_for_backward(a)
         a = float(a)  # or it cannot pass the Apply assertion
         return operators.neg(a)
@@ -234,7 +234,7 @@ class Sigmoid(ScalarFunction):
     "Sigmoid function"
 
     @staticmethod
-    def forward(ctx: Context, a: float) -> float:
+    def forward(ctx: Context, a: float) -> float:  # type: ignore
         ctx.save_for_backward(a)
         return operators.sigmoid(a)
 
@@ -249,7 +249,7 @@ class ReLU(ScalarFunction):
     "ReLU function"
 
     @staticmethod
-    def forward(ctx: Context, a: float) -> float:
+    def forward(ctx: Context, a: float) -> float:  # type: ignore
         ctx.save_for_backward(a)
         return operators.relu(a)
 
@@ -263,7 +263,7 @@ class Exp(ScalarFunction):
     "Exp function"
 
     @staticmethod
-    def forward(ctx: Context, a: float) -> float:
+    def forward(ctx: Context, a: float) -> float:  # type: ignore
         ctx.save_for_backward(a)
         return operators.exp(a)
 
@@ -277,7 +277,7 @@ class LT(ScalarFunction):
     "Less-than function $f(x) =$ 1.0 if x is less than y else 0.0"
 
     @staticmethod
-    def forward(ctx: Context, a: float, b: float) -> float:
+    def forward(ctx: Context, a: float, b: float) -> float:  # type: ignore
         ctx.save_for_backward(a, b)
         return operators.lt(a, b)
 
@@ -290,7 +290,7 @@ class EQ(ScalarFunction):
     "Equal function $f(x) =$ 1.0 if x is equal to y else 0.0"
 
     @staticmethod
-    def forward(ctx: Context, a: float, b: float) -> float:
+    def forward(ctx: Context, a: float, b: float) -> float:  # type: ignore
         ctx.save_for_backward(a, b)
         return operators.eq(a, b)
 

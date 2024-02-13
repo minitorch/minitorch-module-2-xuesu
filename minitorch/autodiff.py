@@ -1,5 +1,7 @@
 from typing import Any, List
 
+from .tensor import Tensor
+
 
 variable_count = 1
 
@@ -302,7 +304,7 @@ def topological_sort(variable: Variable) -> List[Variable]:
     """
     vis = set()
     que = [variable]
-    id2cnt = dict()
+    id2cnt: dict[int, int] = dict()
     id2v = dict()
     while len(que) > 0:
         top_v = que[0]
@@ -379,7 +381,11 @@ def backpropagate(variable: Variable, deriv: Any) -> None:
     id2d = {variable.unique_id: deriv}
     for v in que:
         d = id2d[v.unique_id]
-        assert d.size == 1 or v.shape == d.shape
+        assert (
+            isinstance(d, Tensor)
+            and isinstance(v, Tensor)
+            and (d.size == 1 or v.shape == d.shape)
+        )
         if v.is_leaf():
             v.accumulate_derivative(d)
         else:
