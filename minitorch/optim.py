@@ -15,5 +15,13 @@ class SGD(Optimizer):
 
     def step(self):
         for p in self.parameters:
+            assert p.value.derivative is not None
             if p.value.derivative is not None:
-                p.update(p.value - self.lr * p.value.derivative)
+                from minitorch.tensor import Tensor
+
+                new_value = Tensor(
+                    (p.value - self.lr * p.value.derivative)._tensor,
+                    p.value.history,
+                    backend=p.value.backend,
+                )
+                p.update(new_value)

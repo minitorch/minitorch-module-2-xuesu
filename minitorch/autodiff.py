@@ -1,3 +1,6 @@
+from typing import Any, List
+
+
 variable_count = 1
 
 
@@ -44,18 +47,13 @@ class Variable:
         Args:
             val (bool): whether to require grad
         """
-        self.history = History()
+        if val:
+            self.history = History()
+        else:
+            self.history = None
 
     def backward(self, d_output=None):
-        """
-        Calls autodiff to fill in the derivatives for the history of this object.
-
-        Args:
-            d_output (number, opt): starting derivative to backpropagate through the model
-                                   (typically left out, and assumed to be 1.0).
-        """
-        if d_output is None:
-            d_output = 1.0
+        assert isinstance(d_output, Variable)
         backpropagate(self, d_output)
 
     @property
@@ -180,7 +178,7 @@ class History:
         self.ctx = ctx
         self.inputs = inputs
 
-    def backprop_step(self, d_output):
+    def backprop_step(self, grad_output):
         """
         Run one step of backpropagation by calling chain rule.
 
@@ -190,7 +188,10 @@ class History:
         Returns:
             list of numbers : a derivative with respect to `inputs`
         """
-        raise NotImplementedError('Need to include this file from past assignment.')
+        if self.last_fn is not None:
+            vdlist = self.last_fn.chain_rule(self.ctx, self.inputs, grad_output)
+            return vdlist
+        return []
 
 
 class FunctionBase:
@@ -248,7 +249,6 @@ class FunctionBase:
             cls.data_type,
             type(c),
         )
-
         # Create a new variable from the result with a new history.
         back = None
         if need_grad:
@@ -270,9 +270,16 @@ class FunctionBase:
             (see `is_constant` to remove unneeded variables)
 
         """
+        dlist = cls.backward(ctx, d_output)
+        if not isinstance(dlist, tuple):
+            dlist = (dlist,)
+        return [
+            (input_v, d)
+            for input_v, d in zip(inputs[: len(dlist)], dlist)
+            if not is_constant(input_v)
+        ]
         # Tip: Note when implementing this function that
         # cls.backward may return either a value or a tuple.
-        raise NotImplementedError('Need to include this file from past assignment.')
 
 
 # Algorithms for backpropagation
@@ -282,21 +289,78 @@ def is_constant(val):
     return not isinstance(val, Variable) or val.history is None
 
 
-def topological_sort(variable):
+def topological_sort(variable: Variable) -> List[Variable]:
     """
     Computes the topological order of the computation graph.
 
     Args:
-        variable (:class:`Variable`): The right-most variable
+        variable: The right-most variable
 
     Returns:
         list of Variables : Non-constant Variables in topological order
                             starting from the right.
     """
-    raise NotImplementedError('Need to include this file from past assignment.')
+    vis = set()
+    que = [variable]
+    id2cnt: dict[int, int] = dict()
+    id2v = dict()
+    while len(que) > 0:
+        top_v = que[0]
+        que = que[1:]
+        id2v[top_v.unique_id] = top_v
+        if not is_constant(top_v):
+            if top_v.history is not None and top_v.history.inputs is not None:
+                # print("top_v.history.inputs", top_v.history.inputs)
+                for parent_v in top_v.history.inputs:
+                    if not isinstance(parent_v, Variable):
+                        continue
+                    id2cnt[parent_v.unique_id] = id2cnt.get(parent_v.unique_id, 0) + 1
+                    if parent_v.unique_id not in vis:
+                        vis.add(parent_v.unique_id)
+                        que.append(parent_v)
+    _ans = []
+    que = [v for i, v in id2v.items() if id2cnt.get(i, 0) == 0]
+    assert variable in que
+    vis = set([v.unique_id for v in que])
+    while len(que) > 0:
+        top_v = que[0]
+        que = que[1:]
+        if not is_constant(top_v):
+            _ans.append(top_v)
+            if top_v.history is not None and top_v.history.inputs is not None:
+                for parent_v in top_v.history.inputs:
+                    if not isinstance(parent_v, Variable):
+                        continue
+                    org_cnt = id2cnt.get(parent_v.unique_id, 0)
+                    assert org_cnt > 0
+                    id2cnt[parent_v.unique_id] = org_cnt - 1
+                    if org_cnt == 1 and parent_v.unique_id not in vis:
+                        vis.add(parent_v.unique_id)
+                        que.append(parent_v)
+    assert len(_ans) == len([v for v in id2v.values() if not is_constant(v)])
+    return _ans
 
 
-def backpropagate(variable, deriv):
+def print_out_graph(varaible):
+    que = topological_sort(varaible)
+    for v in que:
+        res = []
+        res.append(v.unique_id)
+        if v.history is not None and v.history.last_fn is not None:
+
+            res += ["<-", v.history.last_fn.__name__, "<-"]
+            for p_v in v.history.inputs:
+                if isinstance(p_v, Variable):
+                    res += [
+                        p_v.unique_id,
+                        "is_constant: " + repr(p_v) if is_constant(p_v) else "",
+                    ]
+                else:
+                    res.append(p_v)
+        print(*res)
+
+
+def backpropagate(variable: Variable, deriv: Any) -> None:
     """
     Runs backpropagation on the computation graph in order to
     compute derivatives for the leave nodes.
@@ -309,4 +373,29 @@ def backpropagate(variable, deriv):
 
     No return. Should write to its results to the derivative values of each leaf through `accumulate_derivative`.
     """
-    raise NotImplementedError('Need to include this file from past assignment.')
+    que = topological_sort(variable)
+    # print_out_graph(variable)
+
+    id2d = {variable.unique_id: deriv}
+    for v in que:
+        d = id2d[v.unique_id]
+        from minitorch.tensor import Tensor
+
+        assert (
+            isinstance(d, Tensor)
+            and isinstance(v, Tensor)
+            and (d.size == 1 or v.shape == d.shape)
+        )
+        if v.is_leaf():
+            v.accumulate_derivative(d)
+        else:
+            # print(v.history.last_fn)
+            for p_v, p_d in v.history.backprop_step(d):
+                assert p_v.shape == p_d.shape or p_d.size == 1
+                if p_v.unique_id not in id2d:
+                    id2d[p_v.unique_id] = p_d
+                else:
+                    id2d[p_v.unique_id] += p_d
+    assert len(que) == len(id2d)
+    if "Variable126" in id2d:
+        print("yes")

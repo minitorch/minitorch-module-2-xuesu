@@ -41,7 +41,6 @@ def test_layout_bad():
 def test_enumeration(tensor_data):
     "Test enumeration of tensor_datas."
     indices = list(tensor_data.indices())
-
     # Check that enough positions are enumerated.
     assert len(indices) == tensor_data.size
 

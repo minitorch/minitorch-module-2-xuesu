@@ -1,11 +1,46 @@
-import numpy as np
+from typing import List
+import numpy
+import numpy.typing as numpy_typing
 from .tensor_data import (
+    IndexingError,
     to_index,
     index_to_position,
     broadcast_index,
     shape_broadcast,
     MAX_DIMS,
 )
+
+
+def zeros_list(l: int) -> List[int]:
+    return [0] * l
+
+
+def big_pos2small_pos(
+    big_pos: int,
+    big_shape: numpy_typing.NDArray[numpy.int32],
+    big_strides: numpy_typing.NDArray[numpy.int32],
+    small_shape: numpy_typing.NDArray[numpy.int32],
+    small_strides: numpy_typing.NDArray[numpy.int32],
+):
+    need_broadcast = False
+    if not numpy.array_equal(small_shape, big_shape):
+        if list(shape_broadcast(big_shape, small_shape)) != big_shape.tolist():
+            raise IndexingError()
+        need_broadcast = True
+
+    big_dimension = len(big_shape)
+    small_dimension = len(small_shape)
+    big_index = zeros_list(big_dimension)
+    to_index(big_pos, big_shape, big_index)
+    if need_broadcast:
+        small_index = zeros_list(small_dimension)
+        broadcast_index(big_index, big_shape, small_shape, small_index)
+    else:
+        small_index = big_index
+    small_pos = index_to_position(small_index, small_strides)
+    assert big_pos == index_to_position(big_index, big_strides)
+    assert small_pos == index_to_position(small_index, small_strides)
+    return int(small_pos)
 
 
 def tensor_map(fn):
@@ -39,8 +74,12 @@ def tensor_map(fn):
     """
 
     def _map(out, out_shape, out_strides, in_storage, in_shape, in_strides):
-        # TODO: Implement for Task 2.2.
-        raise NotImplementedError('Need to implement for Task 2.2')
+        mid_storage = [fn(v) for v in in_storage]
+        for out_pos in range(len(out)):
+            in_pos = big_pos2small_pos(
+                out_pos, out_shape, out_strides, in_shape, in_strides
+            )
+            out[out_pos] = mid_storage[in_pos]
 
     return _map
 
@@ -130,8 +169,21 @@ def tensor_zip(fn):
         b_shape,
         b_strides,
     ):
-        # TODO: Implement for Task 2.2.
-        raise NotImplementedError('Need to implement for Task 2.2')
+        for out_pos in range(len(out)):
+            a_pos = big_pos2small_pos(
+                out_pos, out_shape, out_strides, a_shape, a_strides
+            )
+            b_pos = big_pos2small_pos(
+                out_pos, out_shape, out_strides, b_shape, b_strides
+            )
+            if out_shape.tolist() == [50, 2, 2]:
+                a_index = [0] * 3
+                b_index = [0] * 3
+                out_index = [0] * 3
+                to_index(a_pos, a_shape, a_index)
+                to_index(b_pos, b_shape, b_index)
+                to_index(out_pos, out_shape, out_index)
+            out[out_pos] = fn(a_storage[a_pos], b_storage[b_pos])
 
     return _zip
 
@@ -201,8 +253,20 @@ def tensor_reduce(fn):
     """
 
     def _reduce(out, out_shape, out_strides, a_storage, a_shape, a_strides, reduce_dim):
-        # TODO: Implement for Task 2.2.
-        raise NotImplementedError('Need to implement for Task 2.2')
+        for out_pos in range(len(out)):
+            out_index = zeros_list(len(out_shape))
+            to_index(out_pos, out_shape, out_index)
+            assert out_index[reduce_dim] == 0
+            a_index = list(out_index)
+            ans = 0
+            for i in range(a_shape[reduce_dim]):
+                a_index[reduce_dim] = i
+                a_pos = index_to_position(a_index, a_strides)
+                if i == 0:
+                    ans = a_storage[a_pos]
+                else:
+                    ans = fn(a_storage[a_pos], ans)
+            out[out_pos] = ans
 
     return _reduce
 

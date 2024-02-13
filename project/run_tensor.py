@@ -21,8 +21,13 @@ class Network(minitorch.Module):
         self.layer3 = Linear(hidden_layers, 1)
 
     def forward(self, x):
-        # TODO: Implement for Task 2.5.
-        raise NotImplementedError('Need to implement for Task 2.5')
+        v_1 = self.layer1.forward(x)
+        v_2 = v_1.relu()
+        v_3 = self.layer2.forward(v_2)
+        v_4 = v_3.relu()
+        v_5 = self.layer3.forward(v_4)
+        _ans = v_5.sigmoid()
+        return _ans
 
 
 class Linear(minitorch.Module):
@@ -33,8 +38,13 @@ class Linear(minitorch.Module):
         self.out_size = out_size
 
     def forward(self, x):
-        # TODO: Implement for Task 2.5.
-        raise NotImplementedError('Need to implement for Task 2.5')
+        v_1 = self.weights.value.view(1, *self.weights.value.shape) * x.view(
+            *x.shape, 1
+        )
+        v_2 = v_1.sum(dim=1).contiguous().view(x.shape[0], self.out_size)
+
+        _ans = v_2 + self.bias.value.view(1, self.out_size)
+        return _ans
 
 
 def default_log_fn(epoch, total_loss, correct, losses):
@@ -53,7 +63,6 @@ class TensorTrain:
         return self.model.forward(minitorch.tensor(X))
 
     def train(self, data, learning_rate, max_epochs=500, log_fn=default_log_fn):
-
         self.learning_rate = learning_rate
         self.max_epochs = max_epochs
         self.model = Network(self.hidden_layers)
@@ -70,6 +79,7 @@ class TensorTrain:
 
             # Forward
             out = self.model.forward(X).view(data.N)
+
             prob = (out * y) + (out - 1.0) * (y - 1.0)
 
             loss = -prob.log()
@@ -88,8 +98,8 @@ class TensorTrain:
 
 
 if __name__ == "__main__":
-    PTS = 50
-    HIDDEN = 2
+    PTS = 150
+    HIDDEN = 4
     RATE = 0.5
-    data = minitorch.datasets["Simple"](PTS)
+    data = minitorch.datasets["Xor"](PTS)
     TensorTrain(HIDDEN).train(data, RATE)
