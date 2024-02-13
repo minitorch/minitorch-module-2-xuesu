@@ -47,9 +47,9 @@ class Variable:
         Args:
             val (bool): whether to require grad
         """
-        if val and self.history is None:
+        if val:
             self.history = History()
-        if not val:
+        else:
             self.history = None
 
     def backward(self, d_output=None):
@@ -397,3 +397,5 @@ def backpropagate(variable: Variable, deriv: Any) -> None:
                 else:
                     id2d[p_v.unique_id] += p_d
     assert len(que) == len(id2d)
+    if "Variable126" in id2d:
+        print("yes")

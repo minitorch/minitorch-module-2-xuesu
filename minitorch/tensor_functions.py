@@ -134,9 +134,10 @@ def make_tensor_backend(tensor_ops, is_cuda=False):
             @staticmethod
             def backward(ctx, grad_output):
                 t1_shape, t2_shape = ctx.saved_values
-                return make_sure_gradient_shape(
+                t1_grad, t2_grad = make_sure_gradient_shape(
                     grad_output, t1_shape
                 ), make_sure_gradient_shape(grad_output, t2_shape)
+                return t1_grad, t2_grad
 
         class Mul(Function):
             @staticmethod
@@ -473,6 +474,8 @@ but was expecting derivative %f from central difference.
     for i, x in enumerate(vals):
         ind = x._tensor.sample()
         check = grad_central_difference(f, *vals, arg=i, ind=ind)
+        if abs(x.grad[ind] - check) > 1e-3:
+            print("catch it")
         np.testing.assert_allclose(
             x.grad[ind],
             check,
