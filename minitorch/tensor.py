@@ -128,7 +128,10 @@ class Tensor(Variable):
 
     def sum(self, dim=None):
         "Compute the sum over dimension `dim`"
-        return self.backend.Sum.apply(self, dim)
+        if dim is None:
+            return self.backend.Sum.apply(self)
+        else:
+            return self.backend.Sum.apply(self, dim)
 
     def mean(self, dim=None):
         "Compute the mean over dimension `dim`"

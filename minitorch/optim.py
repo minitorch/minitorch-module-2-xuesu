@@ -1,3 +1,6 @@
+from .tensor import Tensor
+
+
 class Optimizer:
     def __init__(self, parameters):
         self.parameters = parameters
@@ -15,5 +18,11 @@ class SGD(Optimizer):
 
     def step(self):
         for p in self.parameters:
+            assert p.value.derivative is not None
             if p.value.derivative is not None:
-                p.update(p.value - self.lr * p.value.derivative)
+                new_value = Tensor(
+                    (p.value - self.lr * p.value.derivative)._tensor,
+                    p.value.history,
+                    backend=p.value.backend,
+                )
+                p.update(new_value)
